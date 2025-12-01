@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Thẻ tham dự — Check-in</title>
+  <style>
+    body{font-family:Inter,system-ui;background:#080808;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center}
+    .ticket{width:100%;max-width:420px;border:2px solid #d4af37;border-radius:18px;padding:22px;background:linear-gradient(180deg,rgba(255,255,255,0.01),rgba(0,0,0,0.2))}
+    h2{text-align:center;color:#d4af37}
+    .guest{text-align:center;font-size:36px;margin:12px 0;font-weight:800}
+    .grid{display:flex;gap:12px}
+    .chip{flex:1;padding:12px;border-radius:10px;background:rgba(255,255,255,0.02);text-align:center}
+    .label{font-size:12px;color:#bdb4a9}
+    .value{font-size:26px;font-weight:800;color:#d4af37}
+    .number{font-size:36px;font-weight:900}
+    .ts{margin-top:12px;color:#bdb4a9;text-align:center}
+    .back{display:block;text-align:center;margin-top:12px;color:#d4af37;text-decoration:underline;cursor:pointer}
+  </style>
+</head>
+<body>
+  <div class="ticket">
+    <h2>THẺ THAM DỰ</h2>
+    <div class="guest" id="guestName">KHÁCH MỜI</div>
+    <div class="grid">
+      <div class="chip">
+        <div class="label">Đội của bạn</div>
+        <div class="value" id="teamValue">-</div>
+      </div>
+      <div class="chip">
+        <div class="label">Số thứ tự</div>
+        <div class="number" id="numberValue">#-</div>
+      </div>
+    </div>
+    <div class="ts">Vui lòng chụp màn hình lại vé mới này.<br><span id="timeVal"></span></div>
+    <a class="back" id="back">Quay lại màn hình chính</a>
+  </div>
+
+  <script type="module">
+    const firebaseConfig = {  apiKey: "AIzaSyDQYFb4jU4GM6jvNeoI2_ruaL2l40KE1-E",  authDomain: "eddy-2d7b9.firebaseapp.com",  projectId: "eddy-2d7b9",  storageBucket: "eddy-2d7b9.firebasestorage.app",  messagingSenderId: "457973266884",  appId: "1:457973266884:web:b07d771635523c70860c91",  measurementId: "G-EBGZ0TZL66"};
+
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js';
+    import { getFirestore, doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js';
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const guestName = document.getElementById('guestName');
+    const teamValue = document.getElementById('teamValue');
+    const numberValue = document.getElementById('numberValue');
+    const timeVal = document.getElementById('timeVal');
+    const back = document.getElementById('back');
+
+    const lastRef = doc(db, 'meta', 'last_ticket');
+
+    onSnapshot(lastRef, snap => {
+      if(!snap.exists()){
+        guestName.textContent = 'KHÔNG CÓ VÉ';
+        teamValue.textContent = '-';
+        numberValue.textContent = '#-';
+        timeVal.textContent = '';
+        return;
+      }
+      const d = snap.data();
+      guestName.textContent = d.name || 'KHÁCH MỜI';
+      teamValue.textContent = d.team || '?';
+      numberValue.textContent = '#'+String(d.number || '-');
+      timeVal.textContent = new Date(d.ts).toLocaleString();
+    }, err => console.error(err));
+
+    back.addEventListener('click', ()=>{ window.location.href='index.html'; });
+  </script>
+</body>
+</html>

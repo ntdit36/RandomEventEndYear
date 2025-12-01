@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Check-in Sự Kiện — Nhận vé</title>
+  <style>
+    /* Giữ style đơn giản — bạn có thể thay bằng style từ design của bạn */
+    body{font-family:Inter,system-ui;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#080808;color:#fff}
+    .card{width:100%;max-width:520px;background:linear-gradient(180deg,#0b0b0b,#0e0e0e);padding:28px;border-radius:16px;border:1px solid rgba(212,175,55,0.06)}
+    input{width:100%;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit;margin-top:8px}
+    button{margin-top:12px;padding:12px;border-radius:10px;border:0;background:linear-gradient(90deg,#c69f2b,#f1d06b);color:#111;font-weight:700;cursor:pointer}
+    .meta{margin-top:10px;color:#bdb4a9}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Check-in Sự Kiện</h1>
+    <p class="meta">Nhập tên để nhận vé và số thứ tự</p>
+    <label for="name">Tên của bạn</label>
+    <input id="name" placeholder="Nhập tên..." />
+    <button id="btnSubmit">NHẬN VÉ NGAY</button>
+    <div class="meta">Đã check-in: <span id="count">0</span>/50</div>
+  </div>
+
+  <script type="module">
+    // === Dán config Firebase của bạn dưới đây ===
+    const firebaseConfig = {  apiKey: "AIzaSyDQYFb4jU4GM6jvNeoI2_ruaL2l40KE1-E",  authDomain: "eddy-2d7b9.firebaseapp.com",  projectId: "eddy-2d7b9",  storageBucket: "eddy-2d7b9.firebasestorage.app",  messagingSenderId: "457973266884",  appId: "1:457973266884:web:b07d771635523c70860c91",  measurementId: "G-EBGZ0TZL66"};
+
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js';
+    import { getFirestore, collection, query, orderBy, getDocs, doc, setDoc } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js';
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const attendeesCol = collection(db, 'attendees');
+    const metaDocRef = doc(db, 'meta', 'last_ticket');
+
+    const teams = ['A','B','C','D','E','F','G','H','K','L'];
+    const MAX = 50;
+
+    const nameInput = document.getElementById('name');
+    const btnSubmit = document.getElementById('btnSubmit');
+    const countEl = document.getElementById('count');
+
+    function numberToTeam(n){ return teams[Math.floor((n-1)/5)] || '?'; }
+
+    async function loadCount(){
+      try{
+        const q = query(attendeesCol, orderBy('number'));
+        const snap = await getDocs(q);
+        countEl.textContent = snap.size;
+      }catch(e){
+        console.warn('loadCount', e);
+      }
+    }
+
+    async function assignRandomNumber(name){
+      name = name.trim();
+      if(!name) throw new Error('Tên trống');
+
+      // Lấy các số đã dùng
+      const q = query(attendeesCol, orderBy('number'));
+      const snap = await getDocs(q);
+      const used = new Set();
+      snap.forEach(d => { if(d.exists()) used.add(Number(d.data().number)); });
+
+      const free = [];
+      for(let i=1;i<=MAX;i++) if(!used.has(i)) free.push(i);
+      if(free.length===0) throw new Error('Đã đầy (50/50)');
+
+      const pick = free[Math.floor(Math.random()*free.length)];
+      const team = numberToTeam(pick);
+      const ts = new Date().toISOString();
+
+      // Lưu doc với id = số (dễ quản lý)
+      const docRef = doc(db, 'attendees', String(pick));
+      await setDoc(docRef, { number: pick, name, team, ts });
+
+      // Ghi last ticket để ticket.html đọc
+      await setDoc(metaDocRef, { number: pick, name, team, ts });
+
+      return { number: pick, name, team, ts };
+    }
+
+    btnSubmit.addEventListener('click', async ()=>{
+      try{
+        btnSubmit.disabled = true; btnSubmit.textContent = 'Đang xử lý...';
+        const name = nameInput.value;
+        const res = await assignRandomNumber(name);
+        // chuyền sang trang vé
+        window.location.href = 'ticket.html';
+      }catch(e){
+        alert(e.message || e);
+      }finally{
+        btnSubmit.disabled = false; btnSubmit.textContent = 'NHẬN VÉ NGAY';
+        await loadCount();
+      }
+    });
+
+    // init
+    loadCount();
+    nameInput.focus();
+  </script>
+</body>
+</html>
