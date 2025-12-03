@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="vi">
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Admin — Danh sách khách mời</title>
+  <style>
+    body{font-family:Inter,system-ui;background:#080808;color:#fff;padding:20px}
+    .card{max-width:1000px;margin:0 auto;background:linear-gradient(180deg,#0b0b0b,#0e0e0e);padding:18px;border-radius:12px;border:1px solid rgba(212,175,55,0.06)}
+    button{padding:8px 12px;border-radius:8px;border:0;background:linear-gradient(90deg,#c69f2b,#f1d06b);color:#111;cursor:pointer;margin-right:8px}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:8px;border-bottom:1px dashed rgba(255,255,255,0.04);text-align:left}
+    .small{color:#bdb4a9}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Admin — Danh sách khách mời</h1>
+    <div class="small">Realtime từ Firestore (collection <code>attendees</code>)</div>
+    <div style="margin-top:12px">
+      <button id="btnExport">Export CSV</button>
+      <button id="btnReset">Reset (xóa tất cả)</button>
+      <span style="float:right" class="small">Tổng: <span id="count">0</span></span>
+    </div>
+    <table id="tbl"><thead><tr><th>#</th><th>Tên</th><th>Đội</th><th>Thời gian</th></tr></thead><tbody></tbody></table>
+  </div>
+
+  <script type="module">
+    const firebaseConfig = {  apiKey: "AIzaSyDQYFb4jU4GM6jvNeoI2_ruaL2l40KE1-E",  authDomain: "eddy-2d7b9.firebaseapp.com",  projectId: "eddy-2d7b9",  storageBucket: "eddy-2d7b9.firebasestorage.app",  messagingSenderId: "457973266884",  appId: "1:457973266884:web:b07d771635523c70860c91",  measurementId: "G-EBGZ0TZL66"};
+
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js';
+    import {
+      getFirestore, collection, query, orderBy, onSnapshot, getDocs,
+      doc, deleteDoc
+    } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js';
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const attendeesCol = collection(db,'attendees');
+    const q = query(attendeesCol, orderBy('number'));
+
+    const tblBody = document.querySelector('#tbl tbody');
+    const countEl = document.getElementById('count');
+
+    // Realtime listen
+    const unsubscribe = onSnapshot(q, snap => {
+      tblBody.innerHTML = '';
+      let i = 0;
+      snap.forEach(docSnap => {
+        i++;
+        const d = docSnap.data();
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${d.number}</td><td>${escapeHtml(d.name)}</td><td>${d.team}</td><td>${new Date(d.ts).toLocaleString()}</td>`;
+        tblBody.appendChild(tr);
+      });
+      countEl.textContent = i;
+    }, err => { console.error(err); alert('Không load được dữ liệu: '+err.message); });
+
+    document.getElementById('btnExport').addEventListener('click', async ()=>{
+      const snap = await getDocs(q);
+      const rows = [['number','name','team','ts']];
+      snap.forEach(s => rows.push([s.data().number, s.data().name, s.data().team, s.data().ts]));
+      const csv = rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], {type:'text/csv'}); const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'attendees.csv'; a.click(); URL.revokeObjectURL(url);
+    });
+
+    document.getElementById('btnReset').addEventListener('click', async ()=>{
+      if(!confirm('Xác nhận xóa tất cả dữ liệu?')) return;
+      const snap = await getDocs(q);
+      const promises = [];
+      snap.forEach(s => promises.push(deleteDoc(doc(db,'attendees',s.id))));
+      await Promise.all(promises);
+      alert('Đã xóa.');
+    });
+
+    function escapeHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  </script>
+</body>
+</html>
